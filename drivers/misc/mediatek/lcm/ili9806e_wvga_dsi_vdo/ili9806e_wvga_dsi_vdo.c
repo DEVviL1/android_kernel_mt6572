@@ -17,10 +17,10 @@
 #define FRAME_WIDTH                                         (480)
 #define FRAME_HEIGHT                                        (800)
 
-#define REGFLAG_DELAY                                       0XFE
+#define REGFLAG_DELAY                                       0XFF
 #define REGFLAG_END_OF_TABLE                                0xFFF   // END OF REGISTERS MARKER
 
-#define LCM_ID_ILI9806E 0x9806
+#define LCM_ID 0x98
 
 #define LCM_DSI_CMD_MODE                                    0
 
@@ -35,7 +35,6 @@
 // ---------------------------------------------------------------------------
 //  Local Variables
 // ---------------------------------------------------------------------------
-static unsigned int lcm_esd_test = FALSE;      ///only for ESD test
 static LCM_UTIL_FUNCS lcm_util = {0};
 
 #define SET_RESET_PIN(v)                                    (lcm_util.set_reset_pin((v)))
@@ -58,20 +57,8 @@ static LCM_UTIL_FUNCS lcm_util = {0};
  struct LCM_setting_table {
     unsigned cmd;
     unsigned char count;
-    unsigned char para_list[128];
+    unsigned char para_list[35];
 };
-
-static int LCM_DETECT = 0;
-
-//static void ILI9806E_set_reset_pin(int high){
-    //mt_set_gpio_mode(GPIO_DISP_LRSTB_PIN, GPIO_MODE_GPIO);
-    //if(1 == high)
-        //mt_set_gpio_out(GPIO_DISP_LRSTB_PIN, GPIO_OUT_ONE);
-    //else
-        //mt_set_gpio_out(GPIO_DISP_LRSTB_PIN, GPIO_OUT_ZERO);
-//}
-
-//#define SET_RESET_PIN(v)    (ILI9806E_set_reset_pin(v))
 
 static struct LCM_setting_table lcm_initialization_setting[] = {
 {0xFF,  5,  {0xFF,0x98,0x06,0x04,0x01}},
@@ -93,7 +80,6 @@ static struct LCM_setting_table lcm_initialization_setting[] = {
 {0x62,  1,  {0x06}},
 {0x63,  1,  {0x03}},
 {0xA0,  1,  {0x00}},
-//{0xFF,  5,  {0xFF,0x98,0x06,0x04,0x01}},
 {0xA1,  1,  {0x04}},
 {0xA2,  1,  {0x0A}},
 {0xA3,  1,  {0x10}},
@@ -199,15 +185,6 @@ static struct LCM_setting_table lcm_initialization_setting[] = {
 
 };
 
-
-static struct LCM_setting_table lcm_deep_sleep_mode_in_setting[] = {  //TODO: доделать, хз как, в ИДА бред полнейший
-	{0x28, 0, {0x00}},
-        {REGFLAG_DELAY, 120, {}},
-	{0x10, 0, {0x00}},
-        {REGFLAG_DELAY, 20, {}},
-	{REGFLAG_END_OF_TABLE, 0x00, {}}
-};
-
 static void push_table(struct LCM_setting_table *table, unsigned int count, unsigned char force_update)
 {
     unsigned int i;
@@ -256,84 +233,30 @@ static void lcm_get_params(LCM_PARAMS *params)
     params->dsi.mode   = SYNC_PULSE_VDO_MODE;
 
     // DSI
-    /* Command mode setting */
+    // Command mode setting
     params->dsi.LANE_NUM                = LCM_TWO_LANE;
     
-    //The following defined the fomat for data coming from LCD engine.
-    //params->dsi.data_format.color_order = LCM_COLOR_ORDER_RGB;
-    //params->dsi.data_format.trans_seq   = LCM_DSI_TRANS_SEQ_MSB_FIRST;
-   // params->dsi.data_format.padding     = LCM_DSI_PADDING_ON_LSB;
     params->dsi.data_format.format      = LCM_DSI_FORMAT_RGB888;
-    //params->dsi.packet_size			    = 256;
-    // Video mode setting       
-    //params->dsi.intermediat_buffer_num = 0;
-    
+
     params->dsi.PS				    = LCM_PACKED_PS_24BIT_RGB888;
     
-    params->dsi.word_count=480*3;   //DSI CMD mode need set these two bellow params, different to 6577
-    params->dsi.vertical_sync_active                = 6;//3;
-    params->dsi.vertical_backporch                  = 14;//12;  16
-    params->dsi.vertical_frontporch                 = 20;//2;
+    params->dsi.vertical_sync_active                = 6;
+    params->dsi.vertical_backporch                  = 14;
+    params->dsi.vertical_frontporch                 = 20;
     params->dsi.vertical_active_line                = FRAME_HEIGHT;
     
-    params->dsi.horizontal_sync_active              = 10;//10;
-    params->dsi.horizontal_backporch                = 40;//50;
-    params->dsi.horizontal_frontporch               = 40;//50;
-    //params->dsi.horizontal_blanking_pixel           = 60;
+    params->dsi.horizontal_sync_active              = 10;
+    params->dsi.horizontal_backporch                = 40;
+    params->dsi.horizontal_frontporch               = 40;
     params->dsi.horizontal_active_pixel             = FRAME_WIDTH;
     params->dsi.pll_div1=1;     // div1=0,1,2,3;div1_real=1,2,4,4
     params->dsi.pll_div2=1;     // div2=0,1,2,3;div2_real=1,2,4,4
-    params->dsi.fbk_div =25;//17;       // fref=26MHz, fvco=fref*(fbk_div+1)*2/(div1_real*div2_real)    20  
-    //params->dsi.noncont_clock_period = 2; // Unit : frames  
+    params->dsi.fbk_div =25;       // fref=26MHz, fvco=fref*(fbk_div+1)*2/(div1_real*div2_real)
 }
-
-#ifndef BUILD_LK 
-extern int lcd_firmware_version[2];
-#endif
-
-static unsigned int lcm_compare_id(void)
-{
-    int array[4];
-    char buffer[5];
-    char id_high=0;
-    char id_low=0;
-    int id=0;
-    int i;
-
-    buffer[1] =0xaa ;
-    buffer[2] = 0xaa;
-    array[0] = 0x00033700;
-    dsi_set_cmdq(array, 1, 1);
-    MDELAY(10);
-    read_reg_v2(0xd3, buffer, 3);
-
-    id_high = buffer[1];
-    id_low = buffer[2];
-    id = (id_high<<8) | id_low;
-    
-    #ifdef BUILD_LK
-        printf("ILI9806E lk %s \n", __func__);
-        printf("%s id = 0x%08x \n", __func__, id);
-
-    #elif defined(BUILD_UBOOT)
-        printf("ILI9806E uboot %s \n", __func__);
-        printf("%s id = 0x%08x \n", __func__, id);
-    #else
-        printk("ILI9806E kernel %s \n", __func__);
-        printk("%s id = 0x%08x \n", __func__, id);
-    #endif
-  
-    return (LCM_ID_ILI9806E == id)?1:0;
-    //return 1;
-}
-
-
-
 
 static void lcm_init(void)
 {
-    unsigned int data_array[16];
-    unsigned int i;
+
     SET_RESET_PIN(1);
     MDELAY(10);
     SET_RESET_PIN(0);
@@ -341,111 +264,34 @@ static void lcm_init(void)
     SET_RESET_PIN(1);
     MDELAY(120);
 
-    //i = lcm_compare_id();
-
-    #ifdef BUILD_LK
-        printf("ILI9806E lk %s \n", __func__);
-    #elif defined(BUILD_UBOOT)
-        printf("ILI9806E uboot %s \n", __func__);
-    #else
-        printk("ILI9806E kernel %s \n", __func__);
-    #endif
-    
     push_table(lcm_initialization_setting, sizeof(lcm_initialization_setting) / sizeof(struct LCM_setting_table), 1);
 
 }
 
-static unsigned int lcm_esd_check(void)
-{
-    return FALSE;
-    int i;
-    unsigned char buffer[6] = {0};
-    unsigned int array[2] = {0};
-    
-    //---------------------------------
-    // Set Maximum Return Size
-    //---------------------------------
-    array[0] = 0x00043700;
-    dsi_set_cmdq(array, 1, 1);
-
-    //---------------------------------
-    // Read [9Ch, 00h, ECC] + Error Report(4 Bytes)
-    //---------------------------------
-    read_reg_v2(0x09, buffer, 4);
-    
-    if((0x80 == buffer[0]) && (0x73 == buffer[1]) && (0x04 ==buffer[2]))
-    {
-        #if defined(BUILD_LK)  
-        printf("lcm_esd_check  return FALSE\n");
-        #else  
-        printk("lcm_esd_check return  FALSE\n");
-        #endif
-        
-        return FALSE;
-    }
-    else
-    {
-        #if defined(BUILD_LK)  
-        printf("lcm_esd_check  return TRUE\n");
-        #else  
-        printk("lcm_esd_check return  TRUE\n");
-        #endif
-        
-        return TRUE;
-    }
-}
-
-
- static unsigned int lcm_esd_recover(void)
-{
-#ifndef BUILD_LK   
-    unsigned int data_array[16];  
-    
-    #if defined(BUILD_LK) 
-        printf("lcm_esd_recover enter \n");
-    #else   
-        printk("lcm_esd_recover enter \n");
-    #endif   
-       
-    lcm_init(); 
-      
-    data_array[0]=0x00110500;  
-    dsi_set_cmdq(&data_array, 1, 1);  
-    MDELAY(50);    
-    data_array[0]=0x00290500; 
-    dsi_set_cmdq(&data_array, 1, 1);   
-    data_array[0]= 0x00023902; 
-    data_array[1]= 0xFF51;  
-    dsi_set_cmdq(&data_array, 2, 1); 
-    MDELAY(10);
-#endif  
-     
-    return TRUE;
-}
-
-
-static void lcm_suspend(void)
-{
-    lcm_init();
-    push_table(lcm_deep_sleep_mode_in_setting, sizeof(lcm_deep_sleep_mode_in_setting) / sizeof(struct LCM_setting_table), 1);
-}
-
-
 static void lcm_resume(void)
 {
+
     lcm_init();
+
 }
- 
-LCM_DRIVER ili9806e_wvga_dsi_vdo_lcm_drv = 
+
+static unsigned int lcm_compare_id(void)
 {
-    .name           = "ili9806e_wvga_dsi_vdo",
+
+        return 1;
+
+}
+
+// ---------------------------------------------------------------------------
+//  Get LCM Driver Hooks
+// ---------------------------------------------------------------------------
+
+LCM_DRIVER ili9806e_dsi_vdo_6572_lcm_drv = 
+{
+    .name           = "ili9806e_dsi_vdo_6572",
     .set_util_funcs = lcm_set_util_funcs,
     .get_params     = lcm_get_params,
     .init           = lcm_init,
-    .suspend        = lcm_suspend,
     .resume         = lcm_resume,
-//    .compare_id    = lcm_compare_id,    
-    .esd_check      = lcm_esd_check,      //only for command mode, no use in video mode    
-    .esd_recover    = lcm_esd_recover,    //only for command mode, no use in video mode
-};
-
+    .compare_id     = lcm_compare_id,
+};//added by DEVviL1 For His Fucking Friend dima!
