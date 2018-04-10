@@ -24,10 +24,11 @@ script:
   - export CROSS_COMPILE=~/arm-eabi-4.8/bin/arm-eabi-
   - export KBUILD_BUILD_USER="DEVviL1"
   - export KBUILD_BUILD_HOST="Fire-Dragon"
+  - mkdir out
   - export ARCH=arm
   - export ARCH_MTK_PLATFORM=mt6572
-  - make muse72_s4_kk_debug_defconfig
-  - make -j2
+  - make O=out muse72_s4_kk_debug_defconfig
+  - make O=out -j2
 
 after_success:
-- curl --upload-file arch/arm/boot/zImage https://transfer.sh/d_kernel
+- curl --upload-file out/arch/arm/boot/zImage https://transfer.sh/d_kernel
