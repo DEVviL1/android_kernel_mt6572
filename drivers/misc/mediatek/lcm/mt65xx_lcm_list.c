@@ -33,15 +33,15 @@
 #endif
 
 extern LCM_DRIVER otm8018b_dsi_vdo_lcm_drv;
-extern LCM_DRIVER ili9806e_wvga_dsi_vdo_lcm_drv;
+extern LCM_DRIVER ili9806e_dsi_vdo_6572_lcm_drv;
 
 LCM_DRIVER* lcm_driver_list[] = 
 { 
 #if defined(OTM8018B_DSI_VDO)	
 	&otm8018b_dsi_vdo_lcm_drv, 
 #endif
-        #if defined(ILI9806E_WVGA_DSI_VDO)	
-	&ili9806e_wvga_dsi_vdo_lcm_drv, 
+        #if defined(ILI9806E_DSI_VDO_6572)	
+	&ili9806e_dsi_vdo_6572_lcm_drv, 
 #endif
 };
 
@@ -59,7 +59,7 @@ static unsigned char lcd_id_pins_value = 0xFF;
 
 /******************************************************************************
 Function:       which_lcd_module_triple
-  Description:    read LCD ID PIN status,could identify three status:high¡¢low¡¢float
+  Description:    read LCD ID PIN status,could identify three status:highÂ¡Â¢lowÂ¡Â¢float
   Input:           none
   Output:         none
   Return:         LCD ID1|ID0 value
