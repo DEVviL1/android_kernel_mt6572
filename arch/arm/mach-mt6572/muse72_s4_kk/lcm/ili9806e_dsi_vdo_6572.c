@@ -57,7 +57,7 @@ static LCM_UTIL_FUNCS lcm_util = {0};
  struct LCM_setting_table {
     unsigned cmd;
     unsigned char count;
-    unsigned char para_list[35];
+    unsigned char para_list[64];
 };
 
 static struct LCM_setting_table lcm_initialization_setting[] = {
